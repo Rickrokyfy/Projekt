@@ -18,7 +18,7 @@ namespace Csharp_base
             if(jObject.GetValue("replies")!=null)
             {
                 //Försök läsa replies TODO Kan vara uttdaterad och överflödig
-                try
+                if (jObject.GetValue("replies").ToString() != "")
                 {
                     JObject underkomfalt = JObject.Parse(jObject.GetValue("replies").ToString());
                     //Hämta datan om möjligt 
@@ -41,17 +41,19 @@ namespace Csharp_base
                                 antalkommentarer++;
                             }
                             //Om den har underkommentarer hanteras dessa
-                            if(JObject.Parse(tempob.GetValue("data").ToString()).GetValue("replies").ToString() != "")
+                            if (JObject.Parse(tempob.GetValue("data").ToString()).GetValue("replies") != null)
                             {
-                                Hanteraunderkommentarer(JObject.Parse(tempob.GetValue("data").ToString()), ref antalkommentarer);
+                                if (JObject.Parse(tempob.GetValue("data").ToString()).GetValue("replies").ToString() != "")
+                                {
+                                    Hanteraunderkommentarer(JObject.Parse(tempob.GetValue("data").ToString()), ref antalkommentarer);
+                                }
                             }
+
                         }
 
                     }
-                }catch(Newtonsoft.Json.JsonReaderException)
-                { Console.WriteLine(jObject.ToString());
-                    System.Environment.Exit(1);
                 }
+                
             }
         }
 
