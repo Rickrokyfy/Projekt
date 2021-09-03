@@ -26,7 +26,8 @@ namespace Csharp_base
                     //Hämta svaren
                     JArray replyfield = JArray.Parse(commentdata.GetValue("children").ToString());
                     //Gå igenom alla replies
-                    JObject tempob;
+                    JObject tempob; 
+                    string commenttext;
                     for (int i = 0; i < replyfield.Count(); i++)
                     {
                         //Hämta elementet på platsen som ett objekt
@@ -36,8 +37,8 @@ namespace Csharp_base
                         {
                             if (JObject.Parse(tempob.GetValue("data").ToString()).GetValue("body") != null)
                             {
-
-                                Console.WriteLine(JObject.Parse(tempob.GetValue("data").ToString()).GetValue("body").ToString());
+                                 commenttext = JObject.Parse(tempob.GetValue("data").ToString()).GetValue("body").ToString();
+                                Console.WriteLine(commenttext);
                                 antalkommentarer++;
                             }
                             //Om den har underkommentarer hanteras dessa
@@ -59,6 +60,7 @@ namespace Csharp_base
 
         public static void process_post(string texttoanalyse, ref int antalkommentarer)
         {
+           
             //Hämta ut objekten
             JArray asjson = JArray.Parse(texttoanalyse);
             //Objekt nr 2 är av intresse
@@ -110,18 +112,38 @@ namespace Csharp_base
                 return reader.ReadToEnd();
             }
         }
+
+        public static void api_get_posts(string uri)
+        {
+            //Hämta ut dataobjektet
+            string mellanhand = JObject.Parse(uri).GetValue("data").ToString();
+            Console.WriteLine(mellanhand);
+            JArray jArray = JArray.Parse(mellanhand);
+            //Gå igenom alla object i arrayen
+            string urltemp;
+            JObject tempob;
+            int total_processed_texts = jArray.Count();
+            //Gå igenom alla objekt i arrayen
+            for (int i=0; i<jArray.Count(); i++)
+            {
+                //Hämta ut url koden
+                tempob = JObject.Parse(jArray[i].ToString());
+                urltemp = tempob.GetValue("url").ToString();
+                //Undersök denna urls post
+                process_post(Get_uri(urltemp+="/.json"), ref total_processed_texts);
+            }
+            //Skriv ut antal hanterade texter
+            Console.WriteLine(total_processed_texts);
+        }
         static void Main(string[] args)
         {
-            //TODO HÄMTA 
-            //Hämta ngt från reddit genom att ange uri
-            //TODO VISSA SAKER KANSKE KRÄVER API NYCKEL
-            Console.WriteLine("Ange uri: ");
-            string uri = Console.ReadLine();
-            string result = Get_uri(uri);
-            //TODO HÄMTA ADRESSER TILL ETT ANTAL POSTER INNOM ETT GIVET TIDSINTERVALL GIVET SUBREDDIT
-            int antalkommentarer = 0;
-            process_post(result, ref antalkommentarer);
-            Console.WriteLine(antalkommentarer);
+            //Hämta sidan som ska undersökas
+            Console.WriteLine("Ange sida");
+            string soksida = Console.ReadLine();
+            //Hämta sidans text
+            string output = Get_uri(soksida);
+            //Gå igenom och hämta poster utifrån texten
+            api_get_posts(output);
 
         }
     }
