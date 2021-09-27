@@ -12,111 +12,6 @@ namespace Csharp_base
     
     class Program
     {
-        
-        
-
-      
-        //A class for storing and working with the vader database in relation to texts
-        public class Vaderbase
-        {
-            public SortedList<string, double> Vaderwords= new SortedList<string, double>();
-            public List<KeyValuePair<string, double>> measured_strings = new List<KeyValuePair<string, double>>();
-            public List<string> stopwords = new List<string>();
-            //Creates a vaderbase object from a filedirectory
-            public Vaderbase(string vaderfiledirectory, string stopwords_dir)
-            {
-                
-                StreamReader vaderfile = new StreamReader(vaderfiledirectory);
-                //Read from vaderfile until eof
-                string temp, word;
-                double value;
-                List<KeyValuePair<string, double>> temp_kvp = new List<KeyValuePair<string, double>>();
-                while ((temp = vaderfile.ReadLine())!=null)
-                {
-                    //First element is the word,
-                    word = temp.Substring(0, temp.IndexOf("\t"));
-                    //Second element is the value
-                    temp = temp.Substring(temp.IndexOf("\t")+1);
-                    value = double.Parse(temp.Substring(0, temp.IndexOf("\t")).Replace(".", ","));
-                    //Add the value
-                    temp_kvp.Add(new KeyValuePair<string, double> (word, value));
-                }
-                foreach(KeyValuePair<string, double> kvp in temp_kvp)
-                {
-                    Vaderwords.Add(kvp.Key, kvp.Value);
-                }
-                //Read stopwords to eof
-                StreamReader stopwread = new StreamReader(stopwords_dir);
-                while ((temp = stopwread.ReadLine()) != null)
-                {
-                    stopwords.Add(temp);
-                }
-                //Sort the stopwords
-                stopwords.Sort();
-            }
-
-            //If the word is a vaderword, return that words sentiment value, else return 0
-            public double wordvalue(string word)
-            {
-                //Try to find the word using binary search, 
-                int index = Vaderwords.IndexOfKey(word);
-                if (index > -1)
-                {
-                    return (Vaderwords.Values[index]);
-                }
-                else
-                    return 0;
-            }
-
-            public void analyse_text(string texten)
-            {
-                //Konvertera texten till lower case
-                string lower_text = texten.ToLower();
-                //Om texten inehåller ett nyckelord relaterat till bitcoin och inte uppger att den är en bot undersöks den
-                if ((lower_text.Contains("btc") || lower_text.Contains("bitcoin") || lower_text.Contains("xbt")) && !lower_text.Contains("i am a bot") && !lower_text.Contains("i'm a bot"))
-                {
-                    string basetext = lower_text;
-                    //Ta bort enterslag
-                    lower_text = lower_text.Replace("\n", " ");
-                    string temp;
-
-                    //Ersätt punkt, frågetecken, utropstecken och komma med " " för att göra parsing lättare
-                    lower_text = lower_text.Replace(".", " ");
-                    lower_text = lower_text.Replace(",", " ");
-                    lower_text = lower_text.Replace("!", " ");
-                    lower_text = lower_text.Replace("?", " ");
-                    //Ta bort stopwords
-                    for (int i = 0; i < stopwords.Count(); i++)
-                    {
-                        lower_text = lower_text.Replace(" " + stopwords[i] + " ", "");
-                    }
-                    double sentimentvalue = 0;
-                    //Parsa till ord tills texten är slut
-                    while (lower_text != "")
-                    {
-                        //Om det finns mer än ett ord kvar
-                        if (lower_text.Substring(0, lower_text.Length).Contains(" "))
-                        {
-                            //Hämta ut ord
-                            string word = lower_text.Substring(0, lower_text.IndexOf(" "));
-                            sentimentvalue += wordvalue(word);
-                            //Ersätt lower_text med en ny text där ordet är exkluderat
-                            lower_text = lower_text.Substring(lower_text.IndexOf(" ") + 1, lower_text.Length - lower_text.IndexOf(" ") - 1);
-
-                        }
-                        //Annars hantera bara sista ordet
-                        else
-                        {
-                            sentimentvalue += wordvalue(lower_text);
-                            lower_text = "";
-                        }
-                    }
-                    //Lägg till ett nytt namn-värde för den mätta strängen och dess sentimentvärde till de mätta strängarna
-                    measured_strings.Add(new KeyValuePair<string, double>(basetext, sentimentvalue));
-                }
-            }
-
-        }
         //Sort a list of wordapperances
         public static void Sortdata(ref List<wordapperances> invest_list)
         {
@@ -310,8 +205,9 @@ namespace Csharp_base
                 //Om detta objekt inehåller en selftext
                 if (finalob.GetValue("selftext") != null)
                 {
-                    //Gå igenom texten
+                    //Gå igenom texten och analysera den
                     vaderbas.analyse_text(finalob.GetValue("selftext").ToString());
+                    //Räkna upp antal kommentarer
                     antalkommentarer++;
                 }
             }
@@ -373,7 +269,7 @@ namespace Csharp_base
             }
         }
 
-        public static void api_get_posts(string posts, string reddit,  string sluttid, ref int total_processed_texts, ref Vaderbase vaderbasen)
+        public static void api_get_posts(string posts, string reddit, int behandladetexter,  string sluttid, ref int total_processed_texts, ref Vaderbase vaderbasen)
         {
             //Om dataobjektet inte är tomt
             //TODO FIXA HÄR
@@ -397,22 +293,35 @@ namespace Csharp_base
                     //Undersök denna urls post
                     process_post(Get_uri(urltemp += "/.json"), ref total_processed_texts, ref vaderbasen);
                 }
-                //Hämta ny tid att undersöka, sista gammla tid +1
-                int newtime = int.Parse(JObject.Parse(jArray[jArray.Count() - 1].ToString()).GetValue("created_utc").ToString())+1;
+                //Hämta ny tid att undersöka,
+                int newtime = int.Parse(JObject.Parse(jArray[jArray.Count() - 1].ToString()).GetValue("created_utc").ToString()) + 1;
+                //TODO, skriv ut första tid och summan av de såhär långt hanterade texternas tid
+                double sum = 0;
+                for (int i = behandladetexter; i < vaderbasen.measured_strings.Count(); i++)
+                    sum += vaderbasen.measured_strings[i].Value;
+                StreamWriter csv = File.AppendText(@"C:\Users\01Ahl\Desktop\C#_projekt_mapp\csv.txt");
+                csv.WriteLine((int.Parse(sluttid)-newtime) +","+ sum);
+                csv.Close();
+
+                //Undersök sista gammla tid +1
                 string newuri = "https://api.pushshift.io/reddit/search/submission/?subreddit=" + reddit + "&sort=asc&sort_type=created_utc&after=" + newtime + "&before=" + sluttid + "&size=500";
                 string newposts = Get_uri(newuri);
+
+
                 Console.WriteLine("Getting new posts");
                 Console.WriteLine("Newtime = " + newtime);
-                api_get_posts(newposts, reddit,  sluttid, ref total_processed_texts, ref vaderbasen);
+                api_get_posts(newposts, reddit, vaderbasen.measured_strings.Count(), sluttid, ref total_processed_texts, ref vaderbasen);
+                
             }
             //annars
             else
             {
                 //Skriv ut antal hanterade texter
                 Console.WriteLine("Antal hanterade texter = "+total_processed_texts);
-                //Sortera efter sentiment och skriv ut
-                for(int i=0; i<vaderbasen.measured_strings.Count(); i++)
+                for (int i = 0; i < vaderbasen.measured_strings.Count(); i++)
                     Console.WriteLine(vaderbasen.measured_strings[i].ToString());
+                //Sortera efter sentiment och skriv ut
+
             }
 
         }
@@ -433,7 +342,7 @@ namespace Csharp_base
             Vaderbase vaderbasen = new Vaderbase(@"C:\Users\01Ahl\Desktop\C#_projekt_mapp\vader_sentiment.txt", @"C:\Users\01Ahl\Desktop\C#_projekt_mapp\com.txt");
             //Gå igenom och hämta poster utifrån texten, dessa analyseras sedan mha databasen
             int hanteradetexter = 0;
-            api_get_posts(output, reddit, sluttid, ref hanteradetexter, ref vaderbasen);
+            api_get_posts(output, reddit, 0, sluttid, ref hanteradetexter, ref vaderbasen);
 
         }
     }
